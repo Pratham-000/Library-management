@@ -1,0 +1,101 @@
+.
+├── layout.txt
+├── package-lock.json
+├── package.json
+├── prisma
+│   ├── migrations
+│   │   ├── 20260903154302_init
+│   │   │   └── migration.sql
+│   │   ├── 20260905062747_add_study_session_fields
+│   │   │   └── migration.sql
+│   │   └── migration_lock.toml
+│   ├── schema.prisma
+│   └── seed.ts
+├── prisma.config.ts
+├── src
+│   ├── app.ts
+│   ├── config
+│   │   ├── aiProvider.ts
+│   │   ├── env.ts
+│   │   ├── prisma.ts
+│   │   └── supabase.ts
+│   ├── features
+│   │   ├── ai
+│   │   │   ├──  ai.routes.ts
+│   │   │   ├── ai.client.ts
+│   │   │   ├── ai.controller.ts
+│   │   │   ├── ai.repository.ts
+│   │   │   ├── ai.schema.ts
+│   │   │   └── ai.service.ts
+│   │   ├── auth
+│   │   │   ├── auth.controller.ts
+│   │   │   ├── auth.repository.ts
+│   │   │   ├── auth.routes.ts
+│   │   │   ├── auth.schema.ts
+│   │   │   └── auth.service.ts
+│   │   ├── notebooks
+│   │   │   ├── notebooks.controller.ts
+│   │   │   ├── notebooks.repository.ts
+│   │   │   ├── notebooks.routes.ts
+│   │   │   ├── notebooks.schema.ts
+│   │   │   └── notebooks.service.ts
+│   │   ├── resources
+│   │   │   ├── resources.controller.ts
+│   │   │   ├── resources.repository.ts
+│   │   │   ├── resources.routes.ts
+│   │   │   ├── resources.schema.ts
+│   │   │   ├── resources.service.ts
+│   │   │   └── uploads.utils.ts
+│   │   └── sessions
+│   │       ├── sessions.controller.ts
+│   │       ├── sessions.repository.ts
+│   │       ├── sessions.routes.ts
+│   │       ├── sessions.schema.ts
+│   │       └── sessions.service.ts
+│   ├── generated
+│   │   └── prisma
+│   │       ├── client.d.ts
+│   │       ├── client.js
+│   │       ├── default.d.ts
+│   │       ├── default.js
+│   │       ├── edge.d.ts
+│   │       ├── edge.js
+│   │       ├── index-browser.js
+│   │       ├── index.d.ts
+│   │       ├── index.js
+│   │       ├── package.json
+│   │       ├── query_compiler_fast_bg.js
+│   │       ├── query_compiler_fast_bg.wasm
+│   │       ├── query_compiler_fast_bg.wasm-base64.js
+│   │       ├── runtime
+│   │       │   ├── client.d.ts
+│   │       │   ├── client.js
+│   │       │   ├── index-browser.d.ts
+│   │       │   ├── index-browser.js
+│   │       │   └── wasm-compiler-edge.js
+│   │       ├── schema.prisma
+│   │       ├── wasm-edge-light-loader.mjs
+│   │       └── wasm-worker-loader.mjs
+│   ├── middleware
+│   │   ├── auth.middleware.ts
+│   │   ├── errorHadler.middleware.ts
+│   │   ├── rateLimiter.middleware.ts
+│   │   ├── rbac.middleware.ts
+│   │   └── validate.middleware.ts
+│   ├── routes
+│   │   └── index.ts
+│   ├── server.ts
+│   ├── sockets
+│   │   ├── index.ts
+│   │   ├── room.handler.ts
+│   │   └── timer.handler.ts
+│   ├── types
+│   │   └── express.d.ts
+│   └── utils
+│       ├── apiResponse.ts
+│       ├── appError.ts
+│       ├── asyncHandler.ts
+│       └── logger.ts
+└── tsconfig.json
+
+21 directories, 78 files

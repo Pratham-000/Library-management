@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  STUDENT
+  ADMIN
+}
+
+enum ResourceType {
+  BOOK
+  PDF
+  LINK
+  NOTE_MATERIAL
+}
+
+enum StudySessionStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  password  String
+  email     String   @unique
+  role      Role     @default(STUDENT)
+  createdAt DateTime @default(now())
+
+  notes         Note[]
+  resources     Resource[]
+  studySessions StudySession[]
+}
+
+model Resource {
+  id           String       @id @default(uuid())
+  title        String
+  type         ResourceType
+  fileUrl      String?
+  subject      String?
+  uploadedById String
+  createdAt    DateTime     @default(now())
+
+  uploadedBy    User           @relation(fields: [uploadedById], references: [id])
+  notes         Note[]
+  embeddings    Embeddings[]
+  studySessions StudySession[]
+}
+
+model StudySession {
+  id              String             @id @default(uuid())
+  userId          String
+  resourceId      String?
+  startTime       DateTime           @default(now())
+  endTime         DateTime?
+  durationMinutes Int?
+  status          StudySessionStatus @default(ACTIVE)
+  createdAt       DateTime           @default(now())
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource? @relation(fields: [resourceId], references: [id], onDelete: SetNull)
+  notes    Note[]
+
+  @@index([userId])
+  @@index([resourceId])
+  @@map("study_sessions")
+}
+
+model Note {
+  id         String   @id @default(uuid())
+  content    String
+  userId     String
+  resourceId String?
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  user       User          @relation(fields: [userId], references: [id])
+  resource   Resource?     @relation(fields: [resourceId], references: [id])
+  session    StudySession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  embeddings Embeddings[]
+}
+
+model Embeddings {
+  id         String                     @id @default(uuid())
+  resourceId String?
+  noteId     String?
+  chunkText  String
+  vector     Unsupported("vector(768)")
+  createdAt  DateTime                   @default(now())
+
+  resource Resource? @relation(fields: [resourceId], references: [id])
+  note     Note?     @relation(fields: [noteId], references: [id])
+}
