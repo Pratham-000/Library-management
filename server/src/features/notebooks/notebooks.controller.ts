@@ -130,10 +130,10 @@ export const update = async (
 
         const notebook = await notebooksService.updateNotebook(req.params.id, parsed.data, req.user.id, req.user.role);     
 
-        return res.status(200).json({
-            status : true,
-            data : notebook,
-        });
+       return res.status(200).json({
+            success: true,
+            data: notebook,
+            });
     }
     catch (error) {
         next(error);
@@ -142,28 +142,33 @@ export const update = async (
 // `````````````````````````````````````````````````````
 
 export const remove = async (
-    req : Request<notebookParams>,
-    res : Response,
-    next : NextFunction
+  req: Request<notebookParams>,
+  res: Response,
+  next: NextFunction,
 ) => {
-    try {
-        if(!req.user) {
-            return res.status(401).json({
-                success: false,
-                error : 'Unauthorized',
-            });
-        }
-
-        await notebooksService.deleteNotebook(req.params.id, req.user.id, req.user.role);
-
-        return res.status(200).json({
-            status : true,
-            message : 'Notebook deleted successfully',
-        });
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        error: "Unauthorized",
+      });
     }
-    catch (error) {
-        next(error);
-    }
+
+    await notebooksService.deleteNotebook(
+      req.params.id,
+      req.user.id,
+      req.user.role,
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        message: "Notebook deleted successfully",
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 // ```````````````````````````````````````````````````````
