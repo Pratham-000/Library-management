@@ -5,19 +5,16 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import {
-  clearAuth,
-  getStoredUser,
-  getToken,
-  saveAuth,
-} from "../lib/storage";
+import { useAuth0 } from "@auth0/auth0-react";
+import { apiClient, setAccessTokenProvider } from "../api/client";
 import type { AuthUser } from "../types/auth";
 
 type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  login: (token: string, user: AuthUser) => void;
+  isLoading: boolean;
+  login: () => Promise<void>;
   logout: () => void;
 };
 
@@ -30,53 +27,109 @@ type AuthProviderProps = {
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<AuthUser | null>(() => getStoredUser());
-  const [token, setToken] = useState<string | null>(() => getToken());
+  const {
+    isAuthenticated: auth0Authenticated,
+    isLoading: auth0Loading,
+    error: auth0Error,
+    user: auth0User,
+    loginWithRedirect,
+    logout: auth0Logout,
+    getAccessTokenSilently,
+  } = useAuth0();
 
-  function login(newToken: string, newUser: AuthUser) {
-    saveAuth(newToken, newUser);
-    setToken(newToken);
-    setUser(newUser);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  useEffect(() => {
+    setAccessTokenProvider(
+      auth0Authenticated
+        ? async () => getAccessTokenSilently()
+        : null,
+    );
+
+    return () => setAccessTokenProvider(null);
+  }, [auth0Authenticated, getAccessTokenSilently]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateUser() {
+      if (!auth0Authenticated) {
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          setProfileLoading(false);
+        }
+        return;
+      }
+
+      setProfileLoading(true);
+
+      try {
+        const accessToken = await getAccessTokenSilently();
+        const currentUser = await apiClient<AuthUser>("/auth/me", {
+          method: "GET",
+          auth: true,
+          token: accessToken,
+        });
+
+        if (!cancelled) {
+          setToken(accessToken);
+          setUser(currentUser);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+          console.error("Unable to hydrate application user:", error);
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    }
+
+    void hydrateUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [auth0Authenticated, getAccessTokenSilently]);
+
+  async function login() {
+    await loginWithRedirect({
+      appState: { returnTo: window.location.pathname },
+      authorizationParams: {
+        connection: import.meta.env.VITE_AUTH0_GOOGLE_CONNECTION || "google-oauth2",
+      },
+    });
   }
 
   function logout() {
-    clearAuth();
-    setToken(null);
     setUser(null);
+    setToken(null);
+    auth0Logout({
+      logoutParams: {
+        returnTo: window.location.origin,
+      },
+    });
   }
-
-  useEffect(() => {
-    function handleUnauthorized() {
-      logout();
-    }
-
-    window.addEventListener(
-      "online-library:unauthorized",
-      handleUnauthorized,
-    );
-
-    return () => {
-      window.removeEventListener(
-        "online-library:unauthorized",
-        handleUnauthorized,
-      );
-    };
-  }, []);
 
   const value = useMemo(
     () => ({
       user,
       token,
-      isAuthenticated: Boolean(token && user),
+      isAuthenticated: auth0Authenticated && Boolean(user),
+      isLoading: auth0Loading || profileLoading,
       login,
       logout,
     }),
-    [token, user],
+    [user, token, auth0Authenticated, auth0Loading, profileLoading],
   );
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  if (auth0Error) {
+    console.error("Auth0 error:", auth0Error);
+  }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
