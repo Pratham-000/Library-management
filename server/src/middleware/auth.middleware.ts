@@ -54,7 +54,7 @@ async function getSigningKey(kid: string) {
   const key = jwksCache.keys.find((item) => item.kid === kid);
   if (!key) throw new Error("Auth0 signing key not found");
 
-  return createPublicKey({ key, format: "jwk" });
+  return createPublicKey({ key: key as JsonWebKey, format: "jwk" });
 }
 
 async function verifyAuth0Token(token: string): Promise<JwtPayload> {
