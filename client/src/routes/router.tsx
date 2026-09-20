@@ -10,6 +10,7 @@ import { NotebooksPage } from "../pages/NotebooksPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ActiveSessionPage } from "../pages/ActiveSessionPage";
 import { SessionHistoryPage } from "../pages/SessionHistoryPage";
+
 export function AppRouter() {
   return (
     <Routes>
