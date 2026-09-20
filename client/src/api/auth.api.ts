@@ -1,10 +1,10 @@
 import { apiClient } from "./client";
-import type { LoginRequest, LoginResponse } from "../types/auth";
+import type { AuthUser } from "../types/auth";
 
-export function loginUser(credentials: LoginRequest) {
-  return apiClient<LoginResponse>("/auth/login", {
-    method: "POST",
-    body: credentials,
-    auth: false,
+export function getCurrentUser(token?: string | null) {
+  return apiClient<AuthUser>("/auth/me", {
+    method: "GET",
+    auth: true,
+    token,
   });
 }
