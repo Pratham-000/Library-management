@@ -1,13 +1,12 @@
 import {
-  // BookOpen,
   BrainCircuit,
   FileText,
   LayoutDashboard,
   LibraryBig,
   LogOut,
   Moon,
-  Timer,
   Sparkles,
+  Timer,
 } from "lucide-react";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
@@ -21,7 +20,7 @@ const navigationItems = [
   },
   {
     label: "Resources",
-    to: "/resources/new",
+    to: "/resources",
     icon: LibraryBig,
   },
   {

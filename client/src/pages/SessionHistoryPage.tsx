@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { StartSessionDialog } from "../components/sessions/StartSessionDialog";
 import { useSessions } from "../hooks/useSessions";
-import { useCreateSession } from "../hooks/useSessionMutations";
 import type { StudySessionFilter } from "../types/session";
 import {
   formatDateTime,
@@ -17,7 +17,7 @@ const filters: StudySessionFilter[] = [
 
 export function SessionHistoryPage() {
   const { data: sessions, isLoading, isError } = useSessions();
-  const createSession = useCreateSession();
+  const [isStartDialogOpen, setIsStartDialogOpen] = useState(false);
   const [filter, setFilter] = useState<StudySessionFilter>("ALL");
 
   const filtered =
@@ -27,10 +27,6 @@ export function SessionHistoryPage() {
 
   const hasActive =
     sessions?.some((session) => session.status === "ACTIVE") ?? false;
-
-  function handleStartSession() {
-    createSession.mutate({});
-  }
 
   return (
     <section className="sessions-page">
@@ -54,11 +50,10 @@ export function SessionHistoryPage() {
           ) : (
             <button
               type="button"
-              onClick={handleStartSession}
-              disabled={createSession.isPending}
+              onClick={() => setIsStartDialogOpen(true)}
               className="sessions-page__primary-action"
             >
-              {createSession.isPending ? "Starting..." : "Start Session"}
+              Start Session
             </button>
           )}
         </div>
@@ -170,6 +165,11 @@ export function SessionHistoryPage() {
           </table>
         </div>
       )}
+
+      <StartSessionDialog
+        open={isStartDialogOpen}
+        onClose={() => setIsStartDialogOpen(false)}
+      />
     </section>
   );
 }
