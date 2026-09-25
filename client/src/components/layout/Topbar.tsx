@@ -80,6 +80,7 @@ export function Topbar() {
           type="button"
           aria-label="Open account menu"
           title={user?.name ?? "User"}
+          onClick={() => window.location.assign("/settings")}
         >
           <span>{initials}</span>
           <ChevronDown size={15} />
