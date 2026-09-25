@@ -31,7 +31,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isAuthenticated: auth0Authenticated,
     isLoading: auth0Loading,
     error: auth0Error,
-    user: auth0User,
     loginWithRedirect,
     logout: auth0Logout,
     getAccessTokenSilently,
@@ -44,7 +43,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     setAccessTokenProvider(
       auth0Authenticated
-        ? async () => getAccessTokenSilently()
+        ? async () => (await getAccessTokenSilently()) ?? null
         : null,
     );
 
@@ -67,7 +66,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setProfileLoading(true);
 
       try {
-        const accessToken = await getAccessTokenSilently();
+        const accessToken =
+          (await getAccessTokenSilently()) ?? null;
+
+        if (!accessToken) {
+          throw new Error("No access token returned by Auth0");
+        }
+
         const currentUser = await apiClient<AuthUser>("/auth/me", {
           method: "GET",
           auth: true,
@@ -85,7 +90,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
           console.error("Unable to hydrate application user:", error);
         }
       } finally {
-        if (!cancelled) setProfileLoading(false);
+        if (!cancelled) {
+          setProfileLoading(false);
+        }
       }
     }
 
@@ -98,9 +105,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   async function login() {
     await loginWithRedirect({
-      appState: { returnTo: window.location.pathname },
+      appState: {
+        returnTo: window.location.pathname,
+      },
       authorizationParams: {
-        connection: import.meta.env.VITE_AUTH0_GOOGLE_CONNECTION || "google-oauth2",
+        connection:
+          import.meta.env.VITE_AUTH0_GOOGLE_CONNECTION ||
+          "google-oauth2",
       },
     });
   }
@@ -108,6 +119,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   function logout() {
     setUser(null);
     setToken(null);
+
     auth0Logout({
       logoutParams: {
         returnTo: window.location.origin,
@@ -131,5 +143,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     console.error("Auth0 error:", auth0Error);
   }
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 }

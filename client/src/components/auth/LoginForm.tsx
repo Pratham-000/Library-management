@@ -1,4 +1,9 @@
-import { BookOpen, CheckCircle2, Chrome, ShieldCheck, Sparkles } from "lucide-react";
+import {
+  BookOpen,
+  CheckCircle2,
+  ShieldCheck,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../ui/Button";
 
@@ -19,18 +24,48 @@ export function LoginForm() {
           <Sparkles size={15} />
           Study smarter
         </span>
+
         <h1>Welcome back.</h1>
-        <p>Keep your notes, resources and study sessions in one focused workspace.</p>
+
+        <p>
+          Keep your notes, resources and study sessions in one focused
+          workspace.
+        </p>
       </div>
 
       <div className="auth-card__highlights">
-        <span><CheckCircle2 size={16} /> Personal study workspace</span>
-        <span><CheckCircle2 size={16} /> AI-powered resource search</span>
-        <span><CheckCircle2 size={16} /> Secure Google sign-in</span>
+        <span>
+          <CheckCircle2 size={16} />
+          Personal study workspace
+        </span>
+
+        <span>
+          <CheckCircle2 size={16} />
+          AI-powered resource search
+        </span>
+
+        <span>
+          <CheckCircle2 size={16} />
+          Secure Google sign-in
+        </span>
       </div>
 
-      <Button type="button" fullWidth onClick={() => void login()}>
-        <Chrome size={18} />
+      <Button
+        type="button"
+        fullWidth
+        onClick={() => void login()}
+      >
+        <span
+          aria-hidden="true"
+          style={{
+            fontWeight: 700,
+            fontSize: "18px",
+            lineHeight: 1,
+          }}
+        >
+          G
+        </span>
+
         Continue with Google
       </Button>
 
@@ -40,7 +75,8 @@ export function LoginForm() {
       </div>
 
       <p className="auth-card__footer">
-        By continuing, you agree to use this library only for legitimate study and educational purposes.
+        By continuing, you agree to use this library only for legitimate
+        study and educational purposes.
       </p>
     </div>
   );
