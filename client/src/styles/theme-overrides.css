@@ -248,3 +248,8 @@ html[data-theme="dark"] .mobile-navigation {
     align-self: flex-start;
   }
 }
+
+/* Keep profile access available on small screens. */
+@media (max-width: 520px) {
+  .topbar__avatar { display: inline-flex; }
+}
