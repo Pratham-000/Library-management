@@ -253,3 +253,45 @@ html[data-theme="dark"] .mobile-navigation {
 @media (max-width: 520px) {
   .topbar__avatar { display: inline-flex; }
 }
+
+
+/* Dark-theme contrast fixes */
+html[data-theme="dark"] .sidebar__logo,
+html[data-theme="dark"] .auth-card__logo,
+html[data-theme="dark"] .sidebar__nav-item--active,
+html[data-theme="dark"] .topbar__new-note,
+html[data-theme="dark"] .dashboard-action--primary,
+html[data-theme="dark"] .dashboard-resource-summary__button,
+html[data-theme="dark"] .notebooks-page__new-note-button,
+html[data-theme="dark"] .notes-empty-state__button,
+html[data-theme="dark"] .note-detail-page__save-button,
+html[data-theme="dark"] .sessions-page__primary-action,
+html[data-theme="dark"] .sessions-filter-button--active,
+html[data-theme="dark"] .active-session-primary-button,
+html[data-theme="dark"] .start-session-dialog__start,
+html[data-theme="dark"] .resources-page__primary-action,
+html[data-theme="dark"] .resource-detail__study-action,
+html[data-theme="dark"] .resource-form__submit,
+html[data-theme="dark"] .ai-search-bar__submit,
+html[data-theme="dark"] .ui-button--primary {
+  color: var(--color-background);
+}
+
+html[data-theme="dark"] .auth-card__eyebrow {
+  color: var(--color-text-secondary);
+}
+
+html[data-theme="dark"] .ui-button__spinner {
+  border-color: rgba(11, 12, 15, 0.32);
+  border-top-color: var(--color-background);
+}
+
+html[data-theme="dark"] .ui-input,
+html[data-theme="dark"] .resource-form__field input,
+html[data-theme="dark"] .resource-form__field select {
+  background: var(--color-surface);
+}
+
+html[data-theme="dark"] .sessions-filter-button--active:hover {
+  color: var(--color-background);
+}
