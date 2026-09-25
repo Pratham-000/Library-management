@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   LibraryBig,
   LogOut,
-  Moon,
   Settings,
   Sparkles,
   Timer,
