@@ -4,7 +4,7 @@ import {
   LayoutDashboard,
   LibraryBig,
   LogOut,
-  Moon,
+  Settings,
   Sparkles,
   Timer,
 } from "lucide-react";
@@ -101,15 +101,10 @@ export function Sidebar() {
         </div>
 
         <div className="sidebar__secondary-actions">
-          <button
-            className="sidebar__secondary-button"
-            type="button"
-            disabled
-            title="Dark theme is currently the default application theme"
-          >
-            <Moon size={18} />
-            <span>Dark theme</span>
-          </button>
+          <NavLink className="sidebar__secondary-button" to="/settings">
+            <Settings size={18} />
+            <span>Settings</span>
+          </NavLink>
 
           <button
             className="sidebar__secondary-button"

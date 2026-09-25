@@ -14,6 +14,7 @@ const routeTitles: Record<string, string> = {
   "/notebooks": "Notebooks",
   "/sessions": "Study Sessions",
   "/ai-search": "AI Search",
+  "/settings": "Profile & Settings",
 };
 
 function getPageTitle(pathname: string) {
@@ -80,6 +81,7 @@ export function Topbar() {
           type="button"
           aria-label="Open account menu"
           title={user?.name ?? "User"}
+          onClick={() => window.location.assign("/settings")}
         >
           <span>{initials}</span>
           <ChevronDown size={15} />

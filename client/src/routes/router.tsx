@@ -14,6 +14,7 @@ import { NotFoundPage } from "../pages/NotFoundPage";
 import { ResourceDetailPage } from "../pages/ResourceDetailPage";
 import { ResourcesPage } from "../pages/ResourcesPage";
 import { SessionHistoryPage } from "../pages/SessionHistoryPage";
+import { SettingsPage } from "../pages/SettingsPage";
 
 export function AppRouter() {
   return (
@@ -35,6 +36,7 @@ export function AppRouter() {
           <Route path="/sessions/active" element={<ActiveSessionPage />} />
 
           <Route path="/ai-search" element={<AISearchPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Route>
 
