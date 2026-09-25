@@ -14,6 +14,7 @@ const routeTitles: Record<string, string> = {
   "/notebooks": "Notebooks",
   "/sessions": "Study Sessions",
   "/ai-search": "AI Search",
+  "/settings": "Profile & Settings",
 };
 
 function getPageTitle(pathname: string) {
