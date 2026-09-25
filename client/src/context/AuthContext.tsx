@@ -16,6 +16,7 @@ type AuthContextValue = {
   isLoading: boolean;
   login: () => Promise<void>;
   logout: () => void;
+  updateUser: (input: { name: string }) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | undefined>(
@@ -116,6 +117,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     });
   }
 
+  async function updateUser(input: { name: string }) {
+    const updatedUser = await apiClient<AuthUser>("/auth/me", {
+      method: "PATCH",
+      auth: true,
+      body: input,
+    });
+    setUser(updatedUser);
+  }
+
   function logout() {
     setUser(null);
     setToken(null);
@@ -135,6 +145,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       isLoading: auth0Loading || profileLoading,
       login,
       logout,
+      updateUser,
     }),
     [user, token, auth0Authenticated, auth0Loading, profileLoading],
   );
