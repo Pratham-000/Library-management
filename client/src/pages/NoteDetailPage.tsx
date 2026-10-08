@@ -50,6 +50,8 @@ export function NoteDetailPage() {
 
   const [content, setContent] = useState("");
   const documentRef = useRef<NotebookDocument | null>(null);
+  const mutateAsyncRef = useRef(updateNotebook.mutateAsync);
+  mutateAsyncRef.current = updateNotebook.mutateAsync;
   const [documentVersion, setDocumentVersion] = useState(0);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export function NoteDetailPage() {
             setSaveState("saving");
             setSaveMessage(null);
             setSaveError(null);
-            void updateNotebook.mutateAsync({ content: nextContent })
+            void mutateAsyncRef.current({ content: nextContent })
               .then((updatedNote) => {
                 setContent(updatedNote.content);
                 documentRef.current = parseNotebookContent(updatedNote.content);
@@ -108,7 +110,7 @@ export function NoteDetailPage() {
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [note, updateNotebook]);
+  }, [note]);
 
   useEffect(() => {
     if (!note || !id || isLoading || content === note.content || updateNotebook.isPending) {
@@ -145,7 +147,7 @@ export function NoteDetailPage() {
     }, 1400);
 
     return () => window.clearTimeout(timer);
-  }, [content, id, isLoading, note, updateNotebook]);
+  }, [content, id, isLoading, note?.content, updateNotebook.isPending]);
 
   if (!id) {
     return (
@@ -202,7 +204,7 @@ export function NoteDetailPage() {
       setSaveMessage(null);
       setSaveState("saving");
 
-      const updatedNote = await updateNotebook.mutateAsync({
+      const updatedNote = await mutateAsyncRef.current({
         content: nextContent,
       });
 
