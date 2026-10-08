@@ -77,6 +77,40 @@ export function NoteDetailPage() {
   }, [note, content]);
 
   useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (documentRef.current && !updateNotebook.isPending) {
+          const nextContent = serializeNotebookDocument(documentRef.current);
+          if (nextContent.trim() && nextContent !== note?.content) {
+            setSaveState("saving");
+            setSaveMessage(null);
+            setSaveError(null);
+            void updateNotebook.mutateAsync({ content: nextContent })
+              .then((updatedNote) => {
+                setContent(updatedNote.content);
+                documentRef.current = parseNotebookContent(updatedNote.content);
+                setSaveState("saved");
+                setSaveMessage("Changes saved successfully.");
+              })
+              .catch((mutationError: unknown) => {
+                setSaveState("error");
+                setSaveError(
+                  mutationError instanceof Error
+                    ? mutationError.message
+                    : "Unable to save this note. Please try again.",
+                );
+              });
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [note, updateNotebook]);
+
+  useEffect(() => {
     if (!note || !id || isLoading || content === note.content || updateNotebook.isPending) {
       return;
     }
