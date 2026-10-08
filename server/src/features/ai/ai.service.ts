@@ -24,14 +24,14 @@ function noteContentToPlainText(content: string) {
       }).blocks
         .map((block) => {
           const raw = typeof block.content === "string" ? block.content : "";
-          const text = raw.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+          const text = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
           if (block.type === "checklist") {
-            return \`${block.checked ? "[x]" : "[ ]"} ${text}\`;
+            return `${block.checked ? "[x]" : "[ ]"} ${text}`;
           }
 
           if (block.type === "bullet") {
-            return \`• ${text}\`;
+            return `• ${text}`;
           }
 
           if (block.type === "drawing") {
@@ -41,13 +41,13 @@ function noteContentToPlainText(content: string) {
           return text;
         })
         .filter(Boolean)
-        .join("\\n");
+        .join("\n");
     }
   } catch {
     // Legacy notes are already plain text.
   }
 
-  return content.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+  return content.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 export const aiService = {
