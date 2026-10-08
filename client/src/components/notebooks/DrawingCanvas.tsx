@@ -161,13 +161,13 @@ export function DrawingCanvas({ value, disabled = false, onChange }: DrawingCanv
     const point = pointFromEvent(event);
     startPointRef.current = point;
 
-    if (tool === "pen" || tool === "eraser") {
+    if (tool === "pen") {
       activeStrokeRef.current = {
         id: crypto.randomUUID(),
         points: [point],
-        color: tool === "eraser" ? "#000000" : color,
-        width: tool === "eraser" ? Math.max(width * 3, 14) : width,
-        tool,
+        color,
+        width,
+        tool: "pen",
       };
     }
   }
