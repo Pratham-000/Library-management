@@ -110,7 +110,7 @@ export function NoteDetailPage() {
 
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
-  }, [note]);
+  }, [note?.content, updateNotebook.isPending]);
 
   useEffect(() => {
     if (!note || !id || isLoading || content === note.content || updateNotebook.isPending) {
