@@ -163,12 +163,14 @@ export function RichNotebookEditor({
 
   function handleContentInput(id: string, element: HTMLElement) {
     const content = element.innerText.replace(/\u00a0/g, " ");
-    setDocument((current) => ({
-      ...current,
-      blocks: current.blocks.map((block) =>
+    const next = {
+      ...document,
+      blocks: document.blocks.map((block) =>
         block.id === id ? { ...block, content } : block,
       ),
-    }));
+    };
+    setDocument(next);
+    onDocumentChange?.(next);
   }
 
   function copyCode(content: string) {
@@ -313,10 +315,12 @@ export function RichNotebookEditor({
                   onFocus={() => setActiveBlockId(block.id)}
                   onChange={(event) => {
                     const value = event.target.value;
-                    setDocument((current) => ({
-                      ...current,
-                      blocks: current.blocks.map((item) => item.id === block.id ? { ...item, content: value } : item),
-                    }));
+                    const next = {
+                      ...document,
+                      blocks: document.blocks.map((item) => item.id === block.id ? { ...item, content: value } : item),
+                    };
+                    setDocument(next);
+                    onDocumentChange?.(next);
                   }}
                   className="real-notebook__code-input"
                   placeholder="Write code here..."
