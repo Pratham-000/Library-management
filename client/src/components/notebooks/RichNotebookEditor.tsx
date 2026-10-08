@@ -128,7 +128,7 @@ export function RichNotebookEditor({
   }
 
   function format(command: string, value?: string) {
-    document.execCommand(command, false, value);
+    window.document.execCommand(command, false, value);
   }
 
   function handleKeyDown(
