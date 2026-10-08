@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DeleteNoteDialog } from "../components/notebooks/DeleteNoteDialog";
+import { RichNotebookEditor } from "../components/notebooks/RichNotebookEditor";
+import { parseNotebookContent, serializeNotebookDocument, type NotebookDocument } from "../types/notebookDocument";
 import { NoteDetailsPanel } from "../components/notebooks/NoteDetailsPanel";
 import {
   useDeleteNotebook,
@@ -42,6 +44,8 @@ export function NoteDetailPage() {
   const indexNotebook = useIndexNotebookWithAI();
 
   const [content, setContent] = useState("");
+  const documentRef = useRef<NotebookDocument | null>(null);
+  const [documentVersion, setDocumentVersion] = useState(0);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [indexMessage, setIndexMessage] = useState<string | null>(null);
@@ -51,6 +55,8 @@ export function NoteDetailPage() {
   useEffect(() => {
     if (note) {
       setContent(note.content);
+      documentRef.current = parseNotebookContent(note.content);
+      setDocumentVersion((value) => value + 1);
     }
   }, [note]);
 
@@ -98,12 +104,15 @@ export function NoteDetailPage() {
   const currentNote = note;
 
   const hasUnsavedChanges =
-    content.trim() !== currentNote.content.trim();
+    content.trim() !== currentNote.content.trim() ||
+    (documentRef.current ? serializeNotebookDocument(documentRef.current) !== currentNote.content : false);
 
   async function handleSave() {
-    const trimmedContent = content.trim();
+    const nextContent = documentRef.current
+      ? serializeNotebookDocument(documentRef.current)
+      : content.trim();
 
-    if (!trimmedContent) {
+    if (!nextContent.trim() || nextContent === JSON.stringify(parseNotebookContent(""))) {
       setSaveError("Notebook content cannot be empty.");
       setSaveMessage(null);
       return;
@@ -114,9 +123,10 @@ export function NoteDetailPage() {
       setSaveMessage(null);
 
       await updateNotebook.mutateAsync({
-        content: trimmedContent,
+        content: nextContent,
       });
 
+      setContent(nextContent);
       setSaveMessage("Changes saved successfully.");
     } catch (mutationError) {
       setSaveError(
@@ -199,16 +209,16 @@ export function NoteDetailPage() {
 
       <div className="note-detail-page__layout">
         <main className="note-detail-editor">
-          <textarea
-            className="note-detail-editor__textarea"
-            aria-label="Notebook content"
-            value={content}
-            onChange={(event) => {
-              setContent(event.target.value);
+          <RichNotebookEditor
+            key={documentVersion}
+            initialDocument={documentRef.current ?? parseNotebookContent(content)}
+            disabled={updateNotebook.isPending}
+            onDocumentChange={(nextDocument) => {
+              documentRef.current = nextDocument;
               setSaveMessage(null);
               setSaveError(null);
+              setContent(serializeNotebookDocument(nextDocument));
             }}
-            disabled={updateNotebook.isPending}
           />
 
           <div className="note-detail-editor__footer">
