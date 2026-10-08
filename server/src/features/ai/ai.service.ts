@@ -3,6 +3,53 @@ import { aiRepository } from "./ai.repository";
 import { prisma } from "../../config/prisma";
 import { AppError } from "../../utils/appError";
 
+function noteContentToPlainText(content: string) {
+  try {
+    const parsed: unknown = JSON.parse(content);
+
+    if (
+      parsed &&
+      typeof parsed === "object" &&
+      "version" in parsed &&
+      (parsed as { version?: unknown }).version === 1 &&
+      "blocks" in parsed &&
+      Array.isArray((parsed as { blocks?: unknown }).blocks)
+    ) {
+      return (parsed as {
+        blocks: Array<{
+          type?: string;
+          content?: string;
+          checked?: boolean;
+        }>;
+      }).blocks
+        .map((block) => {
+          const raw = typeof block.content === "string" ? block.content : "";
+          const text = raw.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+
+          if (block.type === "checklist") {
+            return \`${block.checked ? "[x]" : "[ ]"} ${text}\`;
+          }
+
+          if (block.type === "bullet") {
+            return \`• ${text}\`;
+          }
+
+          if (block.type === "drawing") {
+            return "[Drawing / diagram]";
+          }
+
+          return text;
+        })
+        .filter(Boolean)
+        .join("\\n");
+    }
+  } catch {
+    // Legacy notes are already plain text.
+  }
+
+  return content.replace(/<[^>]*>/g, " ").replace(/\\s+/g, " ").trim();
+}
+
 export const aiService = {
   async embedResource(resourceId: string, userId: string) {
     const resource = await prisma.resource.findFirst({
@@ -40,13 +87,14 @@ export const aiService = {
       throw new AppError(`Note with id ${noteId} not found`, 404);
     }
 
-    const vector = await generateEmbedding(note.content);
+    const chunkText = noteContentToPlainText(note.content);
+    const vector = await generateEmbedding(chunkText);
 
     await aiRepository.deleteEmbeddingsByNoteId(noteId);
 
     return aiRepository.insertEmbedding({
       noteId,
-      chunkText: note.content,
+      chunkText,
       vector,
     });
   },
