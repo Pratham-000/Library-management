@@ -129,7 +129,7 @@ export function NoteDetailPage() {
       setSaveMessage(null);
       setSaveError(null);
 
-      void updateNotebook.mutateAsync({ content: nextContent })
+      void mutateAsyncRef.current({ content: nextContent })
         .then((updatedNote) => {
           setContent(updatedNote.content);
           documentRef.current = parseNotebookContent(updatedNote.content);
