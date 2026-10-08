@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "../ui/Button";
 import { RichNotebookEditor } from "./RichNotebookEditor";
@@ -13,12 +13,12 @@ type NoteEditorProps = {
 };
 
 export function NoteEditor({ isOpen, isSaving, error, onClose, onSave }: NoteEditorProps) {
-  const [document, setDocument] = useState<NotebookDocument>(() => parseNotebookContent(""));
+  const documentRef = useRef<NotebookDocument>(parseNotebookContent(""));
   const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      setDocument(parseNotebookContent(""));
+      documentRef.current = parseNotebookContent("");
       setValidationError(null);
     }
   }, [isOpen]);
@@ -26,8 +26,8 @@ export function NoteEditor({ isOpen, isSaving, error, onClose, onSave }: NoteEdi
   if (!isOpen) return null;
 
   async function handleSubmit() {
-    const content = serializeNotebookDocument(document);
-    if (!document.blocks.some((block) => block.content.trim())) {
+    const content = serializeNotebookDocument(documentRef.current);
+    if (!documentRef.current.blocks.some((block) => block.content.trim())) {
       setValidationError("Notebook content cannot be empty.");
       return;
     }
@@ -57,9 +57,11 @@ export function NoteEditor({ isOpen, isSaving, error, onClose, onSave }: NoteEdi
         </div>
 
         <RichNotebookEditor
-          initialDocument={document}
+          initialDocument={documentRef.current}
           disabled={isSaving}
-          onDocumentChange={setDocument}
+          onDocumentChange={(nextDocument) => {
+            documentRef.current = nextDocument;
+          }}
         />
 
         {visibleError ? <p className="note-editor-form__error" role="alert">{visibleError}</p> : null}
