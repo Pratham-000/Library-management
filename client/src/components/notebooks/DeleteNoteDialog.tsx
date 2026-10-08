@@ -1,5 +1,6 @@
 import { Trash2, X } from "lucide-react";
 import { Button } from "../ui/Button";
+import { notebookDocumentToPlainText, parseNotebookContent } from "../../types/notebookDocument";
 
 type DeleteNoteDialogProps = {
   isOpen: boolean;
@@ -11,7 +12,7 @@ type DeleteNoteDialogProps = {
 };
 
 function getPreview(content: string) {
-  const normalizedContent = content.trim();
+  const normalizedContent = notebookDocumentToPlainText(parseNotebookContent(content)).trim();
 
   if (normalizedContent.length <= 115) {
     return normalizedContent;
