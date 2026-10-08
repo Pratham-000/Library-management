@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import {
   Bold,
   Check,
@@ -17,9 +17,14 @@ import {
   Type,
   Undo2,
   Underline,
+  PenTool,
 } from "lucide-react";
+import { DrawingCanvas } from "./DrawingCanvas";
 import {
   createBlock,
+  parseDrawing,
+  sanitizeNotebookHtml,
+  serializeDrawing,
   type NotebookBlock,
   type NotebookBlockType,
   type NotebookDocument,
@@ -32,11 +37,75 @@ type RichNotebookEditorProps = {
   onDocumentChange?: (document: NotebookDocument) => void;
 };
 
+type EditableTextBlockProps = {
+  block: NotebookBlock;
+  disabled: boolean;
+  onFocus: () => void;
+  onInput: (html: string) => void;
+  onKeyDown: (event: KeyboardEvent<HTMLDivElement>) => void;
+  setRef: (element: HTMLDivElement | null) => void;
+  format: (command: string, value?: string) => void;
+};
+
 const textColors: NotebookTextColor[] = ["default", "red", "orange", "green", "blue", "purple"];
 const highlights = ["none", "yellow", "green", "blue", "pink", "orange"];
 
 function cloneDocument(document: NotebookDocument): NotebookDocument {
   return JSON.parse(JSON.stringify(document)) as NotebookDocument;
+}
+
+function EditableTextBlock({
+  block,
+  disabled,
+  onFocus,
+  onInput,
+  onKeyDown,
+  setRef,
+  format,
+}: EditableTextBlockProps) {
+  const elementRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+    const safeHtml = sanitizeNotebookHtml(block.content);
+    if (element.innerHTML !== safeHtml) {
+      element.innerHTML = safeHtml;
+    }
+  }, [block.content]);
+
+  return (
+    <div
+      ref={(element) => {
+        elementRef.current = element;
+        setRef(element);
+      }}
+      className={[
+        "real-notebook__content",
+        `real-notebook__content--${block.color ?? "default"}`,
+        `real-notebook__highlight--${block.highlight ?? "none"}`,
+      ].join(" ")}
+      contentEditable={!disabled}
+      suppressContentEditableWarning
+      role="textbox"
+      aria-label={block.type === "heading" ? "Notebook heading" : "Notebook text"}
+      onFocus={onFocus}
+      onInput={(event) => onInput(event.currentTarget.innerHTML)}
+      onKeyDown={onKeyDown}
+      onMouseDown={() => {
+        // Keep the browser selection available to the formatting toolbar.
+      }}
+      onBlur={() => {
+        const selection = window.getSelection();
+        if (selection?.rangeCount) {
+          const range = selection.getRangeAt(0);
+          if (!elementRef.current?.contains(range.commonAncestorContainer)) return;
+        }
+      }}
+      data-format-target="notebook"
+      dangerouslySetInnerHTML={{ __html: sanitizeNotebookHtml(block.content) }}
+    />
+  );
 }
 
 export function RichNotebookEditor({
@@ -54,12 +123,18 @@ export function RichNotebookEditor({
 
   useEffect(() => {
     setDocument(cloneDocument(initialDocument));
+    setActiveBlockId(initialDocument.blocks[0]?.id ?? null);
     setHistory([]);
     setFuture([]);
   }, [initialDocument]);
 
   const plainLength = useMemo(
-    () => document.blocks.reduce((total, block) => total + block.content.length, 0),
+    () =>
+      document.blocks.reduce(
+        (total, block) =>
+          total + block.content.replace(/<[^>]+>/g, "").length,
+        0,
+      ),
     [document],
   );
 
@@ -77,6 +152,17 @@ export function RichNotebookEditor({
         block.id === id ? { ...block, ...patch } : block,
       ),
     });
+  }
+
+  function updateBlockWithoutHistory(id: string, patch: Partial<NotebookBlock>) {
+    const next = {
+      ...document,
+      blocks: document.blocks.map((block) =>
+        block.id === id ? { ...block, ...patch } : block,
+      ),
+    };
+    setDocument(next);
+    onDocumentChange?.(next);
   }
 
   function addBlock(type: NotebookBlockType = "paragraph", afterId?: string) {
@@ -103,10 +189,11 @@ export function RichNotebookEditor({
       updateBlock(id, { content: "" });
       return;
     }
-    commit({
-      ...document,
-      blocks: document.blocks.filter((block) => block.id !== id),
-    });
+
+    const index = document.blocks.findIndex((block) => block.id === id);
+    const nextBlocks = document.blocks.filter((block) => block.id !== id);
+    commit({ ...document, blocks: nextBlocks });
+    setActiveBlockId(nextBlocks[Math.max(0, index - 1)]?.id ?? nextBlocks[0]?.id ?? null);
   }
 
   function undo() {
@@ -129,10 +216,18 @@ export function RichNotebookEditor({
 
   function format(command: string, value?: string) {
     window.document.execCommand(command, false, value);
+    const selection = window.getSelection();
+    const target = selection?.anchorNode?.parentElement?.closest("[data-format-target='notebook']");
+    if (!target) return;
+
+    const blockId = Object.entries(refs.current).find(([, element]) => element === target)?.[0];
+    if (blockId) {
+      updateBlockWithoutHistory(blockId, { content: sanitizeNotebookHtml(target.innerHTML) });
+    }
   }
 
   function handleKeyDown(
-    event: React.KeyboardEvent<HTMLElement>,
+    event: KeyboardEvent<HTMLDivElement>,
     block: NotebookBlock,
   ) {
     if ((event.metaKey || event.ctrlKey) && ["b", "i", "u"].includes(event.key.toLowerCase())) {
@@ -147,23 +242,30 @@ export function RichNotebookEditor({
       return;
     }
 
+    if (event.key === "Tab" && block.type !== "code") {
+      event.preventDefault();
+      format("insertText", "  ");
+      return;
+    }
+
     if (event.key === "Enter" && !event.shiftKey && block.type !== "code") {
       event.preventDefault();
       addBlock("paragraph", block.id);
+      return;
     }
 
-    if (event.key === "Backspace" && block.content === "" && document.blocks.length > 1) {
+    if (event.key === "Backspace" && block.content.replace(/<[^>]+>/g, "").trim() === "" && document.blocks.length > 1) {
       event.preventDefault();
       removeBlock(block.id);
     }
   }
 
-  function handleContentInput(id: string, element: HTMLElement) {
-    const content = element.innerText.replace(/\u00a0/g, " ");
+  function handleContentInput(id: string, html: string) {
+    const safeHtml = sanitizeNotebookHtml(html);
     const next = {
       ...document,
       blocks: document.blocks.map((block) =>
-        block.id === id ? { ...block, content } : block,
+        block.id === id ? { ...block, content: safeHtml } : block,
       ),
     };
     setDocument(next);
@@ -185,9 +287,9 @@ export function RichNotebookEditor({
         <div className="real-notebook__toolbar-divider" />
 
         <div className="real-notebook__toolbar-group">
-          <button type="button" title="Bold" onMouseDown={(e) => { e.preventDefault(); format("bold"); }} disabled={disabled}><Bold size={17} /></button>
-          <button type="button" title="Italic" onMouseDown={(e) => { e.preventDefault(); format("italic"); }} disabled={disabled}><Italic size={17} /></button>
-          <button type="button" title="Underline" onMouseDown={(e) => { e.preventDefault(); format("underline"); }} disabled={disabled}><Underline size={17} /></button>
+          <button type="button" title="Bold" onMouseDown={(event) => { event.preventDefault(); format("bold"); }} disabled={disabled}><Bold size={17} /></button>
+          <button type="button" title="Italic" onMouseDown={(event) => { event.preventDefault(); format("italic"); }} disabled={disabled}><Italic size={17} /></button>
+          <button type="button" title="Underline" onMouseDown={(event) => { event.preventDefault(); format("underline"); }} disabled={disabled}><Underline size={17} /></button>
         </div>
 
         <div className="real-notebook__toolbar-divider" />
@@ -198,7 +300,10 @@ export function RichNotebookEditor({
             value={document.blocks.find((block) => block.id === activeBlockId)?.type ?? "paragraph"}
             onChange={(event) => {
               const type = event.target.value as NotebookBlockType;
-              if (activeBlockId) updateBlock(activeBlockId, { type, language: type === "code" ? "csharp" : undefined });
+              if (activeBlockId) updateBlock(activeBlockId, {
+                type,
+                language: type === "code" ? "csharp" : undefined,
+              });
             }}
             disabled={disabled || !activeBlockId}
             aria-label="Block type"
@@ -209,6 +314,7 @@ export function RichNotebookEditor({
             <option value="checklist">Checklist</option>
             <option value="quote">Quote</option>
             <option value="code">Code</option>
+            <option value="drawing">Drawing / Diagram</option>
           </select>
         </div>
 
@@ -256,6 +362,7 @@ export function RichNotebookEditor({
           <button type="button" title="Add checklist" onClick={() => addBlock("checklist", activeBlockId ?? undefined)} disabled={disabled}><ListChecks size={17} /></button>
           <button type="button" title="Add code block" onClick={() => addBlock("code", activeBlockId ?? undefined)} disabled={disabled}><Code2 size={17} /></button>
           <button type="button" title="Add quote" onClick={() => addBlock("quote", activeBlockId ?? undefined)} disabled={disabled}><Quote size={17} /></button>
+          <button type="button" title="Add drawing / diagram" onClick={() => addBlock("drawing", activeBlockId ?? undefined)} disabled={disabled}><PenTool size={17} /></button>
         </div>
       </div>
 
@@ -272,15 +379,11 @@ export function RichNotebookEditor({
               "real-notebook__block",
               `real-notebook__block--${block.type}`,
               block.important ? "is-important" : "",
+              block.checked ? "is-checked" : "",
             ].join(" ")}
           >
             <div className="real-notebook__block-gutter">
-              <button
-                type="button"
-                title="Delete block"
-                onClick={() => removeBlock(block.id)}
-                disabled={disabled || document.blocks.length === 1}
-              >
+              <button type="button" title="Delete block" onClick={() => removeBlock(block.id)} disabled={disabled || document.blocks.length === 1}>
                 <Trash2 size={14} />
               </button>
             </div>
@@ -288,12 +391,7 @@ export function RichNotebookEditor({
             {block.type === "code" ? (
               <div className="real-notebook__code">
                 <div className="real-notebook__code-header">
-                  <select
-                    value={block.language ?? "csharp"}
-                    onChange={(event) => updateBlock(block.id, { language: event.target.value })}
-                    disabled={disabled}
-                    aria-label="Code language"
-                  >
+                  <select value={block.language ?? "csharp"} onChange={(event) => updateBlock(block.id, { language: event.target.value })} disabled={disabled} aria-label="Code language">
                     <option value="csharp">C#</option>
                     <option value="typescript">TypeScript</option>
                     <option value="javascript">JavaScript</option>
@@ -310,39 +408,29 @@ export function RichNotebookEditor({
                   ref={(element) => { refs.current[block.id] = element; }}
                   value={block.content}
                   onFocus={() => setActiveBlockId(block.id)}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    const next = {
-                      ...document,
-                      blocks: document.blocks.map((item) => item.id === block.id ? { ...item, content: value } : item),
-                    };
-                    setDocument(next);
-                    onDocumentChange?.(next);
-                  }}
+                  onChange={(event) => updateBlockWithoutHistory(block.id, { content: event.target.value })}
                   className="real-notebook__code-input"
                   placeholder="Write code here..."
                   spellCheck={false}
                   disabled={disabled}
                 />
               </div>
+            ) : block.type === "drawing" ? (
+              <DrawingCanvas
+                value={parseDrawing(block.content)}
+                disabled={disabled}
+                onChange={(drawing) => updateBlockWithoutHistory(block.id, { content: serializeDrawing(drawing) })}
+              />
             ) : (
-              <div
-                ref={(element) => { refs.current[block.id] = element; }}
-                className={[
-                  "real-notebook__content",
-                  `real-notebook__content--${block.color ?? "default"}`,
-                  `real-notebook__highlight--${block.highlight ?? "none"}`,
-                ].join(" ")}
-                contentEditable={!disabled}
-                suppressContentEditableWarning
-                role="textbox"
-                aria-label={block.type === "heading" ? "Notebook heading" : "Notebook text"}
+              <EditableTextBlock
+                block={block}
+                disabled={disabled}
+                setRef={(element) => { refs.current[block.id] = element; }}
                 onFocus={() => setActiveBlockId(block.id)}
-                onInput={(event) => handleContentInput(block.id, event.currentTarget)}
+                onInput={(html) => handleContentInput(block.id, html)}
                 onKeyDown={(event) => handleKeyDown(event, block)}
-              >
-                {block.content}
-              </div>
+                format={format}
+              />
             )}
 
             {block.type === "checklist" ? (
@@ -361,18 +449,13 @@ export function RichNotebookEditor({
           </article>
         ))}
 
-        <button
-          type="button"
-          className="real-notebook__add-block"
-          onClick={() => addBlock("paragraph")}
-          disabled={disabled}
-        >
+        <button type="button" className="real-notebook__add-block" onClick={() => addBlock("paragraph")} disabled={disabled}>
           <Plus size={17} /> Add another block
         </button>
       </div>
 
       <div className="real-notebook__hint">
-        Enter creates a new block · ⌘/Ctrl+B, I, U for formatting · use Code for developer notes
+        Enter creates a new block · ⌘/Ctrl+B, I, U · Tab inserts spaces · use Drawing for pen, eraser and diagrams
       </div>
     </div>
   );
