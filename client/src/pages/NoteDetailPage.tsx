@@ -1,13 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Check,
+  Cloud,
   FileWarning,
   LoaderCircle,
   Save,
 } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { DeleteNoteDialog } from "../components/notebooks/DeleteNoteDialog";
+import { RichNotebookEditor } from "../components/notebooks/RichNotebookEditor";
+import {
+  parseNotebookContent,
+  serializeNotebookDocument,
+  type NotebookDocument,
+} from "../types/notebookDocument";
 import { NoteDetailsPanel } from "../components/notebooks/NoteDetailsPanel";
 import {
   useDeleteNotebook,
@@ -18,7 +25,6 @@ import { useNotebook } from "../hooks/useNotebooks";
 
 function formatDate(value: string) {
   const date = new Date(value);
-
   return date.toLocaleDateString(undefined, {
     day: "numeric",
     month: "short",
@@ -26,10 +32,11 @@ function formatDate(value: string) {
   });
 }
 
+type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
+
 export function NoteDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
   const {
     data: note,
     isLoading,
@@ -42,27 +49,112 @@ export function NoteDetailPage() {
   const indexNotebook = useIndexNotebookWithAI();
 
   const [content, setContent] = useState("");
+  const documentRef = useRef<NotebookDocument | null>(null);
+  const mutateAsyncRef = useRef(updateNotebook.mutateAsync);
+  mutateAsyncRef.current = updateNotebook.mutateAsync;
+  const [documentVersion, setDocumentVersion] = useState(0);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
   const [indexMessage, setIndexMessage] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (note) {
+    if (!note) return;
+
+    if (documentRef.current === null || content === note.content) {
       setContent(note.content);
+      documentRef.current = parseNotebookContent(note.content);
+      setDocumentVersion((value) => value + 1);
+      setSaveState("idle");
+      return;
     }
-  }, [note]);
+
+    // The query cache may update after an autosave. Do not reset the editor
+    // while local content is newer than the server snapshot.
+    if (note.content === content) {
+      setSaveState("saved");
+    }
+  }, [note, content]);
+
+  useEffect(() => {
+    const handleShortcut = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault();
+        if (documentRef.current && !updateNotebook.isPending) {
+          const nextContent = serializeNotebookDocument(documentRef.current);
+          if (nextContent.trim() && nextContent !== note?.content) {
+            setSaveState("saving");
+            setSaveMessage(null);
+            setSaveError(null);
+            void mutateAsyncRef.current({ content: nextContent })
+              .then((updatedNote) => {
+                setContent(updatedNote.content);
+                documentRef.current = parseNotebookContent(updatedNote.content);
+                setSaveState("saved");
+                setSaveMessage("Changes saved successfully.");
+              })
+              .catch((mutationError: unknown) => {
+                setSaveState("error");
+                setSaveError(
+                  mutationError instanceof Error
+                    ? mutationError.message
+                    : "Unable to save this note. Please try again.",
+                );
+              });
+          }
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, [note?.content, updateNotebook.isPending]);
+
+  useEffect(() => {
+    if (!note || !id || isLoading || content === note.content || updateNotebook.isPending) {
+      return;
+    }
+
+    setSaveState("unsaved");
+    const timer = window.setTimeout(() => {
+      const nextContent = documentRef.current
+        ? serializeNotebookDocument(documentRef.current)
+        : content;
+
+      if (!nextContent.trim()) return;
+
+      setSaveState("saving");
+      setSaveMessage(null);
+      setSaveError(null);
+
+      void mutateAsyncRef.current({ content: nextContent })
+        .then((updatedNote) => {
+          setContent(updatedNote.content);
+          documentRef.current = parseNotebookContent(updatedNote.content);
+          setSaveState("saved");
+          setSaveMessage("Autosaved.");
+        })
+        .catch((mutationError: unknown) => {
+          setSaveState("error");
+          setSaveError(
+            mutationError instanceof Error
+              ? mutationError.message
+              : "Autosave failed. Your changes are still on this page.",
+          );
+        });
+    }, 1400);
+
+    return () => window.clearTimeout(timer);
+  }, [content, id, isLoading, note?.content, updateNotebook.isPending]);
 
   if (!id) {
     return (
       <section className="note-detail-error-state">
         <FileWarning size={36} />
-
         <h1>Invalid note address</h1>
-
         <p>No notebook ID was provided in the URL.</p>
-
         <Link to="/notebooks">Return to Notebooks</Link>
       </section>
     );
@@ -81,44 +173,47 @@ export function NoteDetailPage() {
     return (
       <section className="note-detail-error-state">
         <FileWarning size={36} />
-
         <h1>Could not load this note</h1>
-
         <p>
           {error instanceof Error
             ? error.message
             : "The note may have been deleted or is no longer available."}
         </p>
-
         <Link to="/notebooks">Return to Notebooks</Link>
       </section>
     );
   }
 
   const currentNote = note;
-
-  const hasUnsavedChanges =
-    content.trim() !== currentNote.content.trim();
+  const hasUnsavedChanges = content !== currentNote.content;
 
   async function handleSave() {
-    const trimmedContent = content.trim();
+    const nextContent = documentRef.current
+      ? serializeNotebookDocument(documentRef.current)
+      : content;
 
-    if (!trimmedContent) {
+    if (!nextContent.trim()) {
       setSaveError("Notebook content cannot be empty.");
       setSaveMessage(null);
+      setSaveState("error");
       return;
     }
 
     try {
       setSaveError(null);
       setSaveMessage(null);
+      setSaveState("saving");
 
-      await updateNotebook.mutateAsync({
-        content: trimmedContent,
+      const updatedNote = await mutateAsyncRef.current({
+        content: nextContent,
       });
 
+      setContent(updatedNote.content);
+      documentRef.current = parseNotebookContent(updatedNote.content);
+      setSaveState("saved");
       setSaveMessage("Changes saved successfully.");
     } catch (mutationError) {
+      setSaveState("error");
       setSaveError(
         mutationError instanceof Error
           ? mutationError.message
@@ -130,12 +225,8 @@ export function NoteDetailPage() {
   async function handleIndex() {
     try {
       setIndexMessage(null);
-
       await indexNotebook.mutateAsync(currentNote.id);
-
-      setIndexMessage(
-        "This note is now searchable with AI semantic search.",
-      );
+      setIndexMessage("This note is now searchable with AI semantic search.");
     } catch (mutationError) {
       setIndexMessage(
         mutationError instanceof Error
@@ -148,12 +239,8 @@ export function NoteDetailPage() {
   async function handleDelete() {
     try {
       setDeleteError(null);
-
       await deleteNotebook.mutateAsync(currentNote.id);
-
-      navigate("/notebooks", {
-        replace: true,
-      });
+      navigate("/notebooks", { replace: true });
     } catch (mutationError) {
       setDeleteError(
         mutationError instanceof Error
@@ -163,6 +250,15 @@ export function NoteDetailPage() {
     }
   }
 
+  const statusLabel =
+    saveState === "saving"
+      ? "Saving..."
+      : saveState === "unsaved"
+        ? "Unsaved changes"
+        : saveState === "error"
+          ? "Save failed"
+          : "Saved";
+
   return (
     <section className="note-detail-page">
       <header className="note-detail-page__header">
@@ -171,54 +267,46 @@ export function NoteDetailPage() {
             <ArrowLeft size={17} />
             Notebooks
           </Link>
-
           <span>/</span>
-
           <strong>Note</strong>
         </div>
 
-        <button
-          className="note-detail-page__save-button"
-          type="button"
-          onClick={() => void handleSave()}
-          disabled={
-            !hasUnsavedChanges ||
-            updateNotebook.isPending ||
-            indexNotebook.isPending
-          }
-        >
-          {updateNotebook.isPending ? (
-            <LoaderCircle className="spin-icon" size={18} />
-          ) : (
-            <Save size={18} />
-          )}
+        <div className="note-detail-page__save-area">
+          <span className={`note-detail-page__save-status note-detail-page__save-status--${saveState}`} role="status">
+            {saveState === "saving" ? <LoaderCircle className="spin-icon" size={15} /> : <Cloud size={15} />}
+            {statusLabel}
+          </span>
 
-          <span>{updateNotebook.isPending ? "Saving..." : "Save"}</span>
-        </button>
+          <button
+            className="note-detail-page__save-button"
+            type="button"
+            onClick={() => void handleSave()}
+            disabled={!hasUnsavedChanges || updateNotebook.isPending || indexNotebook.isPending}
+          >
+            {updateNotebook.isPending ? <LoaderCircle className="spin-icon" size={18} /> : <Save size={18} />}
+            <span>{updateNotebook.isPending ? "Saving..." : "Save now"}</span>
+          </button>
+        </div>
       </header>
 
       <div className="note-detail-page__layout">
         <main className="note-detail-editor">
-          <textarea
-            className="note-detail-editor__textarea"
-            aria-label="Notebook content"
-            value={content}
-            onChange={(event) => {
-              setContent(event.target.value);
+          <RichNotebookEditor
+            key={documentVersion}
+            initialDocument={documentRef.current ?? parseNotebookContent(content)}
+            disabled={updateNotebook.isPending}
+            onDocumentChange={(nextDocument) => {
+              documentRef.current = nextDocument;
               setSaveMessage(null);
               setSaveError(null);
+              setSaveState("unsaved");
+              setContent(serializeNotebookDocument(nextDocument));
             }}
-            disabled={updateNotebook.isPending}
           />
 
           <div className="note-detail-editor__footer">
             <div>
-              {saveError ? (
-                <p className="note-detail-editor__error" role="alert">
-                  {saveError}
-                </p>
-              ) : null}
-
+              {saveError ? <p className="note-detail-editor__error" role="alert">{saveError}</p> : null}
               {saveMessage ? (
                 <p className="note-detail-editor__success" role="status">
                   <Check size={16} />
@@ -226,10 +314,9 @@ export function NoteDetailPage() {
                 </p>
               ) : null}
             </div>
-
             <span>
               Created {formatDate(currentNote.createdAt)}
-              {hasUnsavedChanges ? " · Unsaved changes" : ""}
+              {hasUnsavedChanges ? " · Autosave is on" : ""}
             </span>
           </div>
         </main>

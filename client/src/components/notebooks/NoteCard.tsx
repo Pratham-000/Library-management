@@ -1,6 +1,7 @@
 import { BrainCircuit, Clock3, FileText, MoreVertical } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { Notebook } from "../../types/notebook";
+import { notebookDocumentToPlainText, parseNotebookContent } from "../../types/notebookDocument";
 
 type NoteCardProps = {
   note: Notebook;
@@ -41,11 +42,9 @@ function formatRelativeDate(value: string) {
 }
 
 function getPreview(content: string, maximumLength = 210) {
-  if (content.length <= maximumLength) {
-    return content;
-  }
-
-  return `${content.slice(0, maximumLength).trim()}…`;
+  const plainText = notebookDocumentToPlainText(parseNotebookContent(content));
+  if (plainText.length <= maximumLength) return plainText || "Empty notebook";
+  return `${plainText.slice(0, maximumLength).trim()}…`;
 }
 
 export function NoteCard({
