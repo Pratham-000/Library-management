@@ -8,6 +8,7 @@ import "./styles/reset.css";
 import "./styles/tokens.css";
 import "./styles/globals.css";
 import "./styles/theme-overrides.css";
+import "./styles/notebook-editor.css";
 
 const queryClient = new QueryClient({
   defaultOptions: {
